@@ -1,0 +1,2 @@
+# aquatrack-mcp
+MCPJAM contest
