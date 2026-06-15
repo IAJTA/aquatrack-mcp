@@ -1,6 +1,7 @@
-import { loadConfig } from "./config.js";
-import { createLogger } from "./logger.js";
 import { AquaTrackClient } from "./aquatrack/client.js";
+import { createLogger } from "./logger.js";
+import { buildApp } from "./http/app.js";
+import { loadConfig } from "./config.js";
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
@@ -11,21 +12,22 @@ async function main(): Promise<void> {
     upstream: cfg.aquatrackUrl,
   });
 
-  try {
-    logger.info("Initializing AquaTrack client...");
-    const { cookies } = await AquaTrackClient.authenticate(
-      cfg,
-      "alejandrocastellonfer@gmail.com",
-      "12345678",
-    );
-    const client = new AquaTrackClient(cfg, cookies);
-    const buildings = await client.getBuildings();
-    logger.info("Found buildings", { count: buildings.length });
-  } catch (e) {
-    logger.warn("AquaTrack API test failed");
-  }
+  const app = buildApp(cfg, logger);
 
-  logger.info("AquaTrack MCP gateway successfully initialized.");
+  const server = app.listen(cfg.port, () => {
+    logger.info(`HTTP server listening on http://localhost:${cfg.port}`);
+  });
+
+  const shutdown = () => {
+    logger.info("Shutting down HTTP server...");
+    server.close(() => {
+      logger.info("Server closed successfully.");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 main().catch((err) => {
