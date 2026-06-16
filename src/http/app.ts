@@ -69,7 +69,7 @@ export function buildApp(
   // OAuth login page
   if (cfg.oauthEnabled) {
     const LOGIN_CSP =
-      `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${cfg.publicUrl}; base-uri 'none'; frame-ancestors 'none'`;
+      "default-src 'none'; script-src https://static.cloudflareinsights.com; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'";
 
     const loginLimiter = createRateLimiter({
       max: 5,
