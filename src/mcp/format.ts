@@ -14,7 +14,6 @@ export function round(v: unknown, decimals = 2): number {
 }
 
 export const m3 = (v: unknown) => `${round(v)} m³`;
-export const litres = (v: unknown) => `${round(v)} L`;
 export const bs = (v: unknown) => `Bs ${round(v, 2).toFixed(2)}`;
 export const pct = (v: unknown) =>
   `${round(v, 1) >= 0 ? "+" : ""}${round(v, 1)}%`;
