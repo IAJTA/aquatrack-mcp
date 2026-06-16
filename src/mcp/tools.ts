@@ -13,16 +13,7 @@ import {
   AuthExpiredError,
 } from "../aquatrack/client.js";
 import type { Apartment } from "../aquatrack/types.js";
-import {
-  bs,
-  joinLines,
-  litres,
-  m3,
-  num,
-  pct,
-  result,
-  round,
-} from "./format.js";
+import { bs, joinLines, m3, num, pct, result, round } from "./format.js";
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
@@ -286,7 +277,7 @@ export function registerAquaTrackTools(
         (e) =>
           `• #${e.apartment.apartmentNumber} — ${e.buildingName}` +
           (e.reading
-            ? ` · reading ${round(e.reading.latestReading)}, daily ${litres(e.reading.dailyConsumption)}`
+            ? ` · reading ${round(e.reading.latestReading)}, daily ${m3(e.reading.dailyConsumption)}`
             : ""),
       );
       return result(
@@ -410,7 +401,7 @@ export function registerAquaTrackTools(
               ? `Latest meter reading: ${round(reading.latestReading)}`
               : "Latest meter reading: unavailable",
             reading
-              ? `Daily consumption: ${litres(reading.dailyConsumption)}`
+              ? `Daily consumption: ${m3(reading.dailyConsumption)}`
               : undefined,
           ]),
           { apartment: apt, reading },
@@ -451,11 +442,11 @@ export function registerAquaTrackTools(
         };
         const recent = history
           .slice(-7)
-          .map((h) => `  ${h.date}: ${litres(h.consumption)}`);
+          .map((h) => `  ${h.date}: ${m3(h.consumption)}`);
         return result(
           joinLines([
             `Daily consumption — ${summary.days} days`,
-            `Total: ${litres(summary.total)} · Avg/day: ${litres(summary.average)} · Peak: ${litres(summary.peakConsumption)} on ${summary.peakDate}`,
+            `Total: ${m3(summary.total)} · Avg/day: ${m3(summary.average)} · Peak: ${m3(summary.peakConsumption)} on ${summary.peakDate}`,
             "Last 7 days:",
             ...recent,
           ]),
@@ -506,7 +497,7 @@ export function registerAquaTrackTools(
 
         if (daily.status === "fulfilled" && daily.value) {
           lines.push(
-            `Today's consumption: ${litres(daily.value.consumption)} (as of ${daily.value.date})`,
+            `Today's consumption: ${m3(daily.value.consumption)} (as of ${daily.value.date})`,
           );
         } else {
           lines.push("Today's consumption: not yet calculated.");
@@ -520,7 +511,7 @@ export function registerAquaTrackTools(
           lines.push(`Top ${top.value.length} consumers yesterday:`);
           top.value.forEach((c, i) =>
             lines.push(
-              `  ${i + 1}. #${c.apartmentNumber} (${c.username}) — ${litres(c.totalConsumption)}`,
+              `  ${i + 1}. #${c.apartmentNumber} (${c.username}) — ${m3(c.totalConsumption)}`,
             ),
           );
         }
@@ -579,7 +570,7 @@ export function registerAquaTrackTools(
           });
         const lines = top.map(
           (c, i) =>
-            `${i + 1}. #${c.apartmentNumber} (${c.username}) — ${litres(c.totalConsumption)}`,
+            `${i + 1}. #${c.apartmentNumber} (${c.username}) — ${m3(c.totalConsumption)}`,
         );
         return result(
           joinLines([`Top ${top.length} consumers yesterday:`, ...lines]),
