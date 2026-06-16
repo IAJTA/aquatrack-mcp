@@ -15,6 +15,24 @@ import type {
   WaterReading,
 } from "./types.js";
 
+export interface AquaSession {
+  id: string;
+  kind: "user" | "service";
+  cookies: string[];
+  profile?: Profile;
+  serviceCreds?: { email: string; password: string };
+  inflightReauth?: Promise<void> | null;
+}
+
+export class AuthExpiredError extends Error {
+  constructor(
+    message = "AquaTrack session expired; re-authorization required.",
+  ) {
+    super(message);
+    this.name = "AuthExpiredError";
+  }
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -35,7 +53,11 @@ export class LoginError extends Error {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function timedFetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function timedFetch(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -50,9 +72,19 @@ function extractCookies(res: Response): string[] {
   return setCookie.map((c) => c.split(";")[0]).filter(Boolean);
 }
 
+function mergeCookies(existing: string[], incoming: string[]): string[] {
+  const byName = new Map<string, string>();
+  for (const c of [...existing, ...incoming]) {
+    const name = c.split("=")[0];
+    byName.set(name, c);
+  }
+  return [...byName.values()];
+}
+
 export class AquaTrackClient {
   constructor(
     private readonly cfg: Config,
+    private readonly session: AquaSession,
     private readonly logger: Logger,
   ) {}
 
@@ -75,14 +107,18 @@ export class AquaTrackClient {
         cfg.requestTimeoutMs,
       );
     } catch (err) {
-      throw new LoginError(`Could not reach AquaTrack to log in: ${logger.redact(String((err as Error).message))}`);
+      throw new LoginError(
+        `Could not reach AquaTrack to log in: ${logger.redact(String((err as Error).message))}`,
+      );
     }
 
     if (res.status === 401 || res.status === 404) {
       throw new LoginError("Invalid AquaTrack email or password.");
     }
     if (res.status === 403) {
-      throw new LoginError("This AquaTrack account has not verified its email address.");
+      throw new LoginError(
+        "This AquaTrack account has not verified its email address.",
+      );
     }
     if (!res.ok) {
       throw new LoginError(`AquaTrack login failed (HTTP ${res.status}).`);
@@ -90,7 +126,9 @@ export class AquaTrackClient {
 
     const cookies = extractCookies(res);
     if (!cookies.some((c) => c.startsWith("accessToken="))) {
-      throw new LoginError("AquaTrack login did not return an access token cookie.");
+      throw new LoginError(
+        "AquaTrack login did not return an access token cookie.",
+      );
     }
 
     let profile: Profile | undefined;
@@ -116,8 +154,13 @@ export class AquaTrackClient {
     return this.request("GET", `/api/v1/buildings/${encodeURIComponent(id)}`);
   }
 
-  getApartmentsByBuilding(buildingId: string): Promise<ApartmentWithRelations[]> {
-    return this.request("GET", `/api/v1/apartments/building/${encodeURIComponent(buildingId)}`);
+  getApartmentsByBuilding(
+    buildingId: string,
+  ): Promise<ApartmentWithRelations[]> {
+    return this.request(
+      "GET",
+      `/api/v1/apartments/building/${encodeURIComponent(buildingId)}`,
+    );
   }
 
   getApartment(id: string): Promise<Apartment> {
@@ -125,19 +168,33 @@ export class AquaTrackClient {
   }
 
   getApartmentsByOwner(ownerId: string): Promise<Apartment[]> {
-    return this.request("GET", `/api/v1/apartments/owner/${encodeURIComponent(ownerId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/apartments/owner/${encodeURIComponent(ownerId)}`,
+    );
   }
 
   getApartmentsByTenant(tenantId: string): Promise<Apartment[]> {
-    return this.request("GET", `/api/v1/apartments/tenant/${encodeURIComponent(tenantId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/apartments/tenant/${encodeURIComponent(tenantId)}`,
+    );
   }
 
   getWaterReading(apartmentId: string): Promise<WaterReading> {
-    return this.request("GET", `/api/v1/water-readings/apartment/${encodeURIComponent(apartmentId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/water-readings/apartment/${encodeURIComponent(apartmentId)}`,
+    );
   }
 
-  getApartmentDailyHistory(apartmentId: string): Promise<DailyConsumptionPoint[]> {
-    return this.request("GET", `/api/v1/apartments-consumption/daily/${encodeURIComponent(apartmentId)}`);
+  getApartmentDailyHistory(
+    apartmentId: string,
+  ): Promise<DailyConsumptionPoint[]> {
+    return this.request(
+      "GET",
+      `/api/v1/apartments-consumption/daily/${encodeURIComponent(apartmentId)}`,
+    );
   }
 
   getTopConsumers(buildingId: string, limit: number): Promise<TopConsumer[]> {
@@ -148,11 +205,17 @@ export class AquaTrackClient {
   }
 
   getBuildingDaily(buildingId: string): Promise<BuildingDailyConsumption> {
-    return this.request("GET", `/api/v1/building-consumption/daily/${encodeURIComponent(buildingId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/building-consumption/daily/${encodeURIComponent(buildingId)}`,
+    );
   }
 
   getBuildingDailyChange(buildingId: string): Promise<BuildingDailyChange> {
-    return this.request("GET", `/api/v1/building-consumption/daily-change/${encodeURIComponent(buildingId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/building-consumption/daily-change/${encodeURIComponent(buildingId)}`,
+    );
   }
 
   getBuildingMonthly(
@@ -171,7 +234,10 @@ export class AquaTrackClient {
   }
 
   getCentralsByBuilding(buildingId: string): Promise<Central[]> {
-    return this.request("GET", `/api/v1/centrals/building/${encodeURIComponent(buildingId)}`);
+    return this.request(
+      "GET",
+      `/api/v1/centrals/building/${encodeURIComponent(buildingId)}`,
+    );
   }
 
   getWaterMeters(): Promise<WaterMeter[]> {
@@ -182,13 +248,25 @@ export class AquaTrackClient {
     return this.request("POST", "/api/v1/building-consumption/run-daily");
   }
 
-  recalculateApartmentsDaily(): Promise<{ message: string; timestamp: string }> {
-    return this.request("POST", "/api/v1/apartments-consumption/calculate-daily");
+  recalculateApartmentsDaily(): Promise<{
+    message: string;
+    timestamp: string;
+  }> {
+    return this.request(
+      "POST",
+      "/api/v1/apartments-consumption/calculate-daily",
+    );
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
     const url = `${this.cfg.aquatrackUrl}${path}`;
     let attempt = 0;
+    let didReauth = false;
+
     for (;;) {
       let res: Response;
       try {
@@ -198,6 +276,7 @@ export class AquaTrackClient {
             method,
             headers: {
               "Content-Type": "application/json",
+              Cookie: this.session.cookies.join("; "),
             },
             body: body === undefined ? undefined : JSON.stringify(body),
           },
@@ -217,7 +296,16 @@ export class AquaTrackClient {
         );
       }
 
-      if ((res.status >= 500 || res.status === 429) && attempt < this.cfg.maxRetries) {
+      if (res.status === 401 && !didReauth) {
+        didReauth = true;
+        await this.reauth();
+        continue;
+      }
+
+      if (
+        (res.status >= 500 || res.status === 429) &&
+        attempt < this.cfg.maxRetries
+      ) {
         attempt += 1;
         await sleep(200 * 2 ** attempt);
         continue;
@@ -225,13 +313,79 @@ export class AquaTrackClient {
 
       if (!res.ok) {
         const detail = this.logger.redact((await safeText(res)).slice(0, 500));
-        throw new ApiError(httpMessage(res.status, method, path), res.status, detail);
+        throw new ApiError(
+          httpMessage(res.status, method, path),
+          res.status,
+          detail,
+        );
       }
 
       if (res.status === 204) return undefined as T;
       const text = await safeText(res);
       return (text ? JSON.parse(text) : undefined) as T;
     }
+  }
+
+  private async reauth(): Promise<void> {
+    if (this.session.inflightReauth) return this.session.inflightReauth;
+
+    const run = (async () => {
+      try {
+        await this.refresh();
+        this.logger.debug("AquaTrack access token refreshed", {
+          sessionId: this.session.id,
+        });
+        return;
+      } catch (refreshErr) {
+        this.logger.warn("AquaTrack token refresh failed", {
+          sessionId: this.session.id,
+          reason: this.logger.redact(String((refreshErr as Error).message)),
+        });
+      }
+
+      if (this.session.kind === "service" && this.session.serviceCreds) {
+        const { cookies, profile } = await AquaTrackClient.authenticate(
+          this.cfg,
+          this.session.serviceCreds.email,
+          this.session.serviceCreds.password,
+          this.logger,
+        );
+        this.session.cookies = cookies;
+        this.session.profile = profile;
+        this.logger.info("Service session re-logged in", {
+          sessionId: this.session.id,
+        });
+        return;
+      }
+      throw new AuthExpiredError();
+    })();
+
+    this.session.inflightReauth = run;
+    try {
+      await run;
+    } finally {
+      this.session.inflightReauth = null;
+    }
+  }
+
+  private async refresh(): Promise<void> {
+    const res = await timedFetch(
+      `${this.cfg.aquatrackUrl}/api/v1/auth/refresh`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: this.session.cookies.join("; "),
+        },
+      },
+      this.cfg.requestTimeoutMs,
+    );
+    if (!res.ok) throw new Error(`refresh returned HTTP ${res.status}`);
+    const fresh = extractCookies(res);
+    if (!fresh.some((c) => c.startsWith("accessToken="))) {
+      throw new Error("refresh did not return a new access token");
+    }
+    this.session.cookies = mergeCookies(this.session.cookies, fresh);
   }
 }
 
