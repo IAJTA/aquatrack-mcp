@@ -112,11 +112,16 @@ export class AquaTrackClient {
       );
     }
 
-    if (res.status === 401 || res.status === 403 || res.status === 404) {
-      throw new LoginError("Invalid email or password.");
+    if (res.status === 401 || res.status === 404) {
+      throw new LoginError("Invalid AquaTrack email or password.");
+    }
+    if (res.status === 403) {
+      throw new LoginError(
+        "This AquaTrack account has not verified its email address.",
+      );
     }
     if (!res.ok) {
-      throw new LoginError("Invalid email or password.");
+      throw new LoginError(`AquaTrack login failed with (HTTP ${res.status}).`);
     }
 
     const cookies = extractCookies(res);
