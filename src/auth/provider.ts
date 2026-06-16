@@ -16,9 +16,9 @@ import {
   InvalidTokenError,
   ServerError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
-import type { Config } from "../config.js";
-import type { Logger } from "../logger.js";
-import type { SessionStore } from "./sessions.js";
+import type { Config } from "../config.ts";
+import type { Logger } from "../logger.ts";
+import type { SessionStore } from "./sessions.ts";
 
 interface PendingLogin {
   clientId: string;
