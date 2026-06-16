@@ -2,13 +2,18 @@ import cors from "cors";
 import express, { type Request, type Response } from "express";
 import type { Config } from "../config.js";
 import type { Logger } from "../logger.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
-export function buildApp(cfg: Config, logger: Logger): express.Express {
+export function buildApp(
+  cfg: Config,
+  logger: Logger,
+  mcpServer: McpServer,
+): express.Express {
   const app = express();
   app.disable("x-powered-by");
 
   app.use(cors());
-  app.use(express.json());
 
   // Health check
   app.get("/healthz", (req: Request, res: Response) => {
@@ -20,8 +25,43 @@ export function buildApp(cfg: Config, logger: Logger): express.Express {
     res.json({
       name: "aquatrack-mcp",
       status: "ok",
-      message: "Gateway HTTP server is running",
+      message:
+        "Gateway HTTP server is running. Connect your MCP Client to /sse",
     });
+  });
+
+  let transport: SSEServerTransport | undefined;
+
+  // MCP SSE connection
+  app.get("/sse", async (req: Request, res: Response) => {
+    try {
+      if (transport) {
+        try {
+          await transport.close();
+        } catch {}
+      }
+      transport = new SSEServerTransport("/messages", res);
+      await mcpServer.connect(transport);
+      res.on("close", () => {
+        logger.info("SSE Connection closed by client");
+      });
+      logger.info("New MCP client connected via SSE");
+    } catch (e) {
+      logger.error("SSE Connection error", { error: String(e) });
+    }
+  });
+
+  // MCP messages
+  app.post("/messages", async (req: Request, res: Response) => {
+    if (!transport) {
+      res.status(503).json({ error: "No active SSE connection" });
+      return;
+    }
+    try {
+      await transport.handlePostMessage(req, res);
+    } catch (e) {
+      logger.error("Error handling POST message", { error: String(e) });
+    }
   });
 
   // 404 catch-all
