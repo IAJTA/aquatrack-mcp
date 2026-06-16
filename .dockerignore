@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env
+*.tsbuildinfo
+.DS_Store
+mcpjam/llms.json
+mcpjam/environment.json
+README.md
