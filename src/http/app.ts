@@ -1,4 +1,6 @@
-import express, { type Request, type Response } from "express";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -27,6 +29,15 @@ export function buildApp(
 
   app.use(requestId);
   app.use(securityHeaders);
+
+  const __dirname = fileURLToPath(new URL(".", import.meta.url));
+  app.use(
+    "/assets",
+    express.static(join(__dirname, "..", "..", "assets"), {
+      maxAge: "7d",
+      immutable: true,
+    }),
+  );
 
   app.use(
     cors({
@@ -68,8 +79,26 @@ export function buildApp(
 
   // OAuth login page
   if (cfg.oauthEnabled) {
-    const LOGIN_CSP =
-      "default-src 'none'; script-src https://static.cloudflareinsights.com; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'";
+    const LOGIN_CSP = [
+      "default-src 'none'",
+      "script-src 'self' https://static.cloudflareinsights.com",
+      "style-src 'self'",
+      "img-src 'self'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+    ].join("; ");
+
+    function sendLoginPage(
+      res: Response,
+      status: number,
+      opts: { loginId: string; resourceName: string; error?: string },
+    ): void {
+      res.setHeader("Content-Security-Policy", LOGIN_CSP);
+      res
+        .status(status)
+        .type("html")
+        .send(renderLoginPage(opts));
+    }
 
     const loginLimiter = createRateLimiter({
       max: 5,
@@ -79,40 +108,26 @@ export function buildApp(
         const loginId = String(
           (req.body as { login_id?: string } | undefined)?.login_id ?? "",
         );
-        res.setHeader("Content-Security-Policy", LOGIN_CSP);
-        res
-          .status(429)
-          .type("html")
-          .send(
-            renderLoginPage({
-              loginId,
-              resourceName: cfg.resourceName,
-              error: `Demasiados intentos. Espera ${retryAfter}s e inténtalo de nuevo.`,
-            }),
-          );
+        sendLoginPage(res, 429, {
+          loginId,
+          resourceName: cfg.resourceName,
+          error: `Demasiados intentos. Espera ${retryAfter}s e inténtalo de nuevo.`,
+        });
       },
     });
 
     app.get("/login", (req: Request, res: Response) => {
-      res.setHeader("Content-Security-Policy", LOGIN_CSP);
       const loginId = String(req.query.login_id ?? "");
       if (!provider.getPendingLogin(loginId)) {
-        res
-          .status(400)
-          .type("html")
-          .send(
-            renderLoginPage({
-              loginId,
-              resourceName: cfg.resourceName,
-              error:
-                "This sign-in request has expired. Please start again from your assistant.",
-            }),
-          );
+        sendLoginPage(res, 400, {
+          loginId,
+          resourceName: cfg.resourceName,
+          error:
+            "This sign-in request has expired. Please start again from your assistant.",
+        });
         return;
       }
-      res
-        .type("html")
-        .send(renderLoginPage({ loginId, resourceName: cfg.resourceName }));
+      sendLoginPage(res, 200, { loginId, resourceName: cfg.resourceName });
     });
 
     app.post(
@@ -120,43 +135,35 @@ export function buildApp(
       express.urlencoded({ extended: false }),
       loginLimiter,
       async (req: Request, res: Response) => {
-        res.setHeader("Content-Security-Policy", LOGIN_CSP);
-        const body = req.body as {
-          login_id?: string;
-          email?: string;
-          password?: string;
-        };
-        const loginId = String(body.login_id ?? "");
-        if (!provider.getPendingLogin(loginId)) {
-          res
-            .status(400)
-            .type("html")
-            .send(
-              renderLoginPage({
-                loginId,
-                resourceName: cfg.resourceName,
-                error:
-                  "This sign-in request has expired. Please start again from your assistant.",
-              }),
-            );
-          return;
-        }
-        const email = String(body.email ?? "").trim();
-        const password = String(body.password ?? "");
-        if (!email || !password) {
-          res
-            .status(400)
-            .type("html")
-            .send(
-              renderLoginPage({
-                loginId,
-                resourceName: cfg.resourceName,
-                error: "Email and password are required.",
-              }),
-            );
-          return;
-        }
         try {
+          const body = req.body as {
+            login_id?: string;
+            email?: string;
+            password?: string;
+          };
+          const loginId = String(body.login_id ?? "");
+          logger.debug("Login POST received", { loginId, hasEmail: Boolean(body.email) });
+
+          if (!loginId || !provider.getPendingLogin(loginId)) {
+            sendLoginPage(res, 400, {
+              loginId,
+              resourceName: cfg.resourceName,
+              error:
+                "This sign-in request has expired. Please start again from your assistant.",
+            });
+            return;
+          }
+          const email = String(body.email ?? "").trim();
+          const password = String(body.password ?? "");
+          if (!email || !password) {
+            sendLoginPage(res, 400, {
+              loginId,
+              resourceName: cfg.resourceName,
+              error: "Email and password are required.",
+            });
+            return;
+          }
+
           const { cookies, profile } = await AquaTrackClient.authenticate(
             cfg,
             email,
@@ -174,16 +181,14 @@ export function buildApp(
             e instanceof LoginError
               ? e.message
               : "Sign-in failed. Please try again.";
-          res
-            .status(401)
-            .type("html")
-            .send(
-              renderLoginPage({
-                loginId,
-                resourceName: cfg.resourceName,
-                error: message,
-              }),
-            );
+          const loginId = String(
+            ((req.body as { login_id?: string } | undefined)?.login_id ?? ""),
+          );
+          sendLoginPage(res, 401, {
+            loginId,
+            resourceName: cfg.resourceName,
+            error: message,
+          });
         }
       },
     );
@@ -256,6 +261,23 @@ export function buildApp(
   };
   app.get("/mcp", methodNotAllowed);
   app.delete("/mcp", methodNotAllowed);
+
+    // Error handler
+  app.use(
+    (
+      err: Error,
+      req: Request,
+      res: Response,
+      _next: NextFunction,
+    ) => {
+      logger.error("Unhandled error", {
+        requestId: req.id,
+        reason: logger.redact(err.message),
+      });
+      if (res.headersSent) return;
+      res.status(500).type("html").send("Internal server error.");
+    },
+  );
 
   // Catch-all
   app.use((req: Request, res: Response) => {

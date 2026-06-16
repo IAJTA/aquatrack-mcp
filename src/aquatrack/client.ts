@@ -121,7 +121,7 @@ export class AquaTrackClient {
       );
     }
     if (!res.ok) {
-      throw new LoginError(`AquaTrack login failed (HTTP ${res.status}).`);
+      throw new LoginError(`AquaTrack login failed with (HTTP ${res.status}).`);
     }
 
     const cookies = extractCookies(res);
