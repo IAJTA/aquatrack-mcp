@@ -1,59 +1,52 @@
-import { AquaTrackClient } from "./aquatrack/client.js";
+import { loadConfig, secretsOf } from "./config.js";
 import { createLogger } from "./logger.js";
+import { SessionStore } from "./auth/sessions.js";
+import { AquaTrackOAuthProvider } from "./auth/provider.js";
 import { buildApp } from "./http/app.js";
-import { loadConfig } from "./config.js";
-import { createMcpServer } from "./mcp/server.js";
 
-async function main(): Promise<void> {
+function main(): void {
   const cfg = loadConfig();
-  const logger = createLogger(cfg.logLevel);
+  const logger = createLogger(cfg.logLevel, secretsOf(cfg));
+  const sessions = new SessionStore(cfg, logger);
+  const provider = new AquaTrackOAuthProvider(cfg, sessions, logger);
+  const app = buildApp(cfg, provider, sessions, logger);
 
-  logger.info("AquaTrack MCP gateway starting...", {
-    port: cfg.port,
-    upstream: cfg.aquatrackUrl,
+  const httpServer = app.listen(cfg.port, () => {
+    logger.info("AquaTrack MCP gateway listening", {
+      port: cfg.port,
+      publicUrl: cfg.publicUrl,
+      mcpEndpoint: `${cfg.publicUrl}/mcp`,
+      oauth: cfg.oauthEnabled,
+      staticBearer: Boolean(cfg.evalToken),
+      aquatrackUrl: cfg.aquatrackUrl,
+    });
   });
 
-  let baseClient: AquaTrackClient;
-  try {
-    logger.info("Authenticating test user...");
-    const authResult = await AquaTrackClient.authenticate(
-      cfg,
-      "alejandrocastellonfer@gmail.com",
-      "12345678",
-    );
-    baseClient = new AquaTrackClient(cfg, authResult.cookies);
-    logger.info("Authentication successful!", {
-      email: authResult.profile?.email,
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info("Shutting down: draining HTTP connections", { signal });
+    httpServer.close((err) => {
+      if (err) logger.error("Error during shutdown", { reason: err.message });
+      else logger.info("Drained cleanly; exiting");
+      process.exit(err ? 1 : 0);
     });
-  } catch (error) {
-    logger.error("Authentication failed.", {
-      error: String(error),
-    });
-    baseClient = new AquaTrackClient(cfg, []);
-  }
 
-  const mcpServer = createMcpServer(logger, baseClient);
-  const app = buildApp(cfg, logger, mcpServer);
-
-  const server = app.listen(cfg.port, () => {
-    logger.info(`HTTP server listening on http://localhost:${cfg.port}`);
-  });
-
-  const shutdown = () => {
-    logger.info("Shutting down HTTP server...");
-    server.close(() => {
-      logger.info("Server closed successfully.");
+    setTimeout(() => {
+      logger.warn("Drain timed out; forcing exit");
       process.exit(0);
-    });
+    }, 5000).unref();
   };
-
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-main().catch((err) => {
+try {
+  main();
+} catch (err) {
   process.stderr.write(
     `Fatal: ${err instanceof Error ? err.message : String(err)}\n`,
   );
   process.exit(1);
-});
+}

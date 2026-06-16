@@ -33,24 +33,6 @@ export class AuthExpiredError extends Error {
   }
 }
 
-export interface AquaSession {
-  id: string;
-  kind: "user" | "service";
-  cookies: string[];
-  profile?: Profile;
-  serviceCreds?: { email: string; password: string };
-  inflightReauth?: Promise<void> | null;
-}
-
-export class AuthExpiredError extends Error {
-  constructor(
-    message = "AquaTrack session expired; re-authorization required.",
-  ) {
-    super(message);
-    this.name = "AuthExpiredError";
-  }
-}
-
 export class ApiError extends Error {
   constructor(
     message: string,
