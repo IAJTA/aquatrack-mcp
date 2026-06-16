@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type Request, type Response, type NextFunction } from "express";
@@ -80,28 +79,25 @@ export function buildApp(
 
   // OAuth login page
   if (cfg.oauthEnabled) {
-    function loginCsp(nonce: string): string {
-      return [
-        "default-src 'none'",
-        `script-src 'nonce-${nonce}' https://static.cloudflareinsights.com`,
-        "style-src 'unsafe-inline'",
-        "img-src 'self'",
-        "base-uri 'none'",
-        "frame-ancestors 'none'",
-      ].join("; ");
-    }
+    const LOGIN_CSP = [
+      "default-src 'none'",
+      "script-src 'self' https://static.cloudflareinsights.com",
+      "style-src 'self'",
+      "img-src 'self'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+    ].join("; ");
 
     function sendLoginPage(
       res: Response,
       status: number,
       opts: { loginId: string; resourceName: string; error?: string },
     ): void {
-      const nonce = randomUUID();
-      res.setHeader("Content-Security-Policy", loginCsp(nonce));
+      res.setHeader("Content-Security-Policy", LOGIN_CSP);
       res
         .status(status)
         .type("html")
-        .send(renderLoginPage({ ...opts, nonce }));
+        .send(renderLoginPage(opts));
     }
 
     const loginLimiter = createRateLimiter({
