@@ -1,7 +1,7 @@
 import cors from "cors";
 import express, { type Request, type Response } from "express";
-import type { Config } from "../config.js";
-import type { Logger } from "../logger.js";
+import type { Config } from "../config.ts";
+import type { Logger } from "../logger.ts";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 

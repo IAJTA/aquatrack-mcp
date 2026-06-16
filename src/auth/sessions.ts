@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { Config } from "../config.js";
-import type { Logger } from "../logger.js";
+import type { Config } from "../config.ts";
+import type { Logger } from "../logger.ts";
 import { AquaTrackClient, type AquaSession } from "../aquatrack/client.js";
-import type { Profile } from "../aquatrack/types.js";
+import type { Profile } from "../aquatrack/types.ts";
 
 const SERVICE_SESSION_ID = "service";
 

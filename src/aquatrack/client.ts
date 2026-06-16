@@ -1,5 +1,5 @@
-import type { Config } from "../config.js";
-import type { Logger } from "../logger.js";
+import type { Config } from "../config.ts";
+import type { Logger } from "../logger.ts";
 import type {
   ApartmentWithRelations,
   Apartment,
@@ -13,7 +13,25 @@ import type {
   TopConsumer,
   WaterMeter,
   WaterReading,
-} from "./types.js";
+} from "./types.ts";
+
+export interface AquaSession {
+  id: string;
+  kind: "user" | "service";
+  cookies: string[];
+  profile?: Profile;
+  serviceCreds?: { email: string; password: string };
+  inflightReauth?: Promise<void> | null;
+}
+
+export class AuthExpiredError extends Error {
+  constructor(
+    message = "AquaTrack session expired; re-authorization required.",
+  ) {
+    super(message);
+    this.name = "AuthExpiredError";
+  }
+}
 
 export interface AquaSession {
   id: string;
@@ -144,6 +162,10 @@ export class AquaTrackClient {
     }
 
     return { cookies, profile };
+  }
+
+  get profile(): Profile | undefined {
+    return this.session.profile;
   }
 
   getBuildings(): Promise<Building[]> {
