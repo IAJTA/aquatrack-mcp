@@ -7,6 +7,24 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   error: 40,
 };
 
+const LEVEL_LABEL: Record<LogLevel, string> = {
+  debug: "DEBUG",
+  info: " INFO",
+  warn: " WARN",
+  error: "ERROR",
+};
+
+const LEVEL_COLOR: Record<LogLevel, string> = {
+  debug: "\x1b[90m",
+  info: "\x1b[34m",
+  warn: "\x1b[33m",
+  error: "\x1b[31m",
+};
+
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+
 export interface Logger {
   info(msg: string, ctx?: Record<string, unknown>): void;
   warn(msg: string, ctx?: Record<string, unknown>): void;
@@ -31,23 +49,29 @@ export function createLogger(level: LogLevel, secrets: string[]): Logger {
     return out;
   };
 
+  const ts = () => {
+    const d = new Date();
+    return d.toISOString().slice(0, 19).replace("T", " ");
+  };
+
+  const formatCtx = (fields?: Record<string, unknown>): string => {
+    if (!fields || Object.keys(fields).length === 0) return "";
+    const entries = Object.entries(fields).map(
+      ([k, v]) => `  ${DIM}${k}:${RESET} ${String(v)}`,
+    );
+    return "\n" + entries.join("\n");
+  };
+
   const emit = (
     lvl: LogLevel,
     msg: string,
     fields?: Record<string, unknown>,
   ) => {
     if (LEVEL_ORDER[lvl] < min) return;
-    const line: Record<string, unknown> = {
-      ts: new Date().toISOString(),
-      level: lvl,
-      msg: redact(msg),
-    };
-    if (fields) {
-      for (const [k, v] of Object.entries(fields)) {
-        line[k] = typeof v === "string" ? redact(v) : v;
-      }
-    }
-    process.stderr.write(JSON.stringify(line) + "\n");
+    const color = LEVEL_COLOR[lvl];
+    const label = LEVEL_LABEL[lvl];
+    const line = `${DIM}${ts()}${RESET} ${color}${BOLD}${label}${RESET}  ${redact(msg)}${formatCtx(fields)}`;
+    process.stderr.write(line + "\n");
   };
 
   return {
