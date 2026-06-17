@@ -378,7 +378,7 @@ export function registerAquaTrackTools(
     {
       title: "Get apartment + latest reading",
       description:
-        "Get one apartment's details (by number+building or UUID) together with its latest water-meter reading and current daily consumption.",
+        "Get one apartment's details (by number+building or UUID) together with its latest water-meter reading and current daily consumption. (Do not use this if you only need the historical monthly consumption).",
       inputSchema: { ...apartmentArgs },
       annotations: READ_ONLY,
     },
@@ -415,7 +415,7 @@ export function registerAquaTrackTools(
     {
       title: "Apartment daily history",
       description:
-        "Get the last ~30 days of daily water consumption for one apartment, with total / average / peak-day summary. Good for spotting leaks or unusual usage.",
+        "Get the last ~30 days of daily water consumption for one apartment (by number+building or UUID), with total / average / peak-day summary. Good for spotting leaks or unusual usage. (No need to call get_apartment first).",
       inputSchema: { ...apartmentArgs },
       annotations: READ_ONLY,
     },
@@ -788,7 +788,7 @@ export function registerAquaTrackTools(
     {
       title: "Analyze building consumption",
       description:
-        "Deep analysis of a building's water consumption: today's usage, day-over-day change, 6-month trend (rising/falling/stable), average monthly cost per m³, peak and minimum months. Use to understand consumption patterns and cost efficiency.",
+        "Deep analysis of a building's water consumption: today's usage, day-over-day change, 6-month trend (rising/falling/stable), average monthly cost per m³. Use to understand consumption patterns and cost efficiency. (Do not call get_building_billing to supplement this analysis if data is missing, as they share the same data source).",
       inputSchema: { ...buildingArgs },
       annotations: READ_ONLY,
     },
@@ -905,7 +905,7 @@ export function registerAquaTrackTools(
           .max(100)
           .optional()
           .describe(
-            "Max apartments to analyze (default 20). Larger values take longer.",
+            "Max apartments to analyze (default 20). If the prompt implies checking 'any' or 'all' apartments, explicitly provide a high value like 100 to ensure full coverage.",
           ),
       },
       annotations: READ_ONLY,
@@ -1169,18 +1169,18 @@ export function registerAquaTrackTools(
     {
       title: "Compare consumption periods",
       description:
-        "Compare two months of building water consumption side-by-side: total consumption, average daily usage, peak day, and payment. Shows absolute and percentage differences. Use for month-over-month analysis or seasonal comparison.",
+        "Compare two months of building water consumption side-by-side: total consumption, average daily usage, peak day, and payment. Shows absolute and percentage differences. Use for month-over-month analysis. (If the user asks for the broader impact on billing, also call get_building_billing).",
       inputSchema: {
         ...buildingArgs,
         month1: z
           .string()
           .describe(
-            "First month to compare, in YYYY-MM format (e.g. '2025-09').",
+            "First month to compare, in YYYY-MM format (e.g. '2026-05'). Assume 2026 if no year is provided.",
           ),
         month2: z
           .string()
           .describe(
-            "Second month to compare, in YYYY-MM format (e.g. '2025-10').",
+            "Second month to compare, in YYYY-MM format (e.g. '2026-06'). Assume 2026 if no year is provided.",
           ),
       },
       annotations: READ_ONLY,
@@ -1713,7 +1713,7 @@ export function registerAquaTrackTools(
     {
       title: "Building health report",
       description:
-        "All-in-one diagnostic report for a building: health score (0–100), consumption summary, billing trend, top consumers, IoT status, leak risk indicators, and recommendations. This is the comprehensive 'check-up' for a building.",
+        "All-in-one diagnostic report for a building: health score (0-100), consumption summary, billing trend, top consumers, IoT status, leak risk indicators, and recommendations. This is the comprehensive 'check-up' for a building. (Do not call other diagnostic tools like detect_potential_leaks, identify_consumption_anomalies, or find_high_risk_apartments when using this report, as it already includes all necessary risk and anomaly indicators).",
       inputSchema: { ...buildingArgs },
       annotations: READ_ONLY,
     },
