@@ -36,7 +36,7 @@ const buildingArgs = {
     .string()
     .optional()
     .describe(
-      'Building name, e.g. "Universidad Católica" (case-insensitive, partial match allowed).',
+      'Name of the building to search for, e.g. "Condominio Aria". (Provide this directly without verifying the building first).',
     ),
 };
 
@@ -134,7 +134,7 @@ export function registerAquaTrackTools(
       const available =
         buildings.map((b) => `"${b.name}"`).join(", ") || "(none registered)";
       throw new ToolInputError(
-        `Building "${name}" not found. Available buildings: ${available}.`,
+        `Building "${name}" not found. Available buildings: ${available}. Hint: Retry your tool call with a valid building name from this list.`,
       );
     }
     return match.id;
@@ -378,7 +378,7 @@ export function registerAquaTrackTools(
     {
       title: "Get apartment + latest reading",
       description:
-        "Get one apartment's details (by number+building or UUID) together with its latest water-meter reading and current daily consumption. (Do not use this if you only need the historical monthly consumption).",
+        "Get one apartment's details (by number+building or UUID) together with its latest water-meter reading and current daily consumption. (Do not use this if you only need the historical monthly consumption. If you have the apartment number and building name, call this directly. If the building or apartment is not found, ask the user for clarification instead of searching for it).",
       inputSchema: { ...apartmentArgs },
       annotations: READ_ONLY,
     },
@@ -415,7 +415,7 @@ export function registerAquaTrackTools(
     {
       title: "Apartment daily history",
       description:
-        "Get the last ~30 days of daily water consumption for one apartment (by number+building or UUID), with total / average / peak-day summary. Good for spotting leaks or unusual usage. (No need to call get_apartment first).",
+        "Get the last ~30 days of daily water consumption for one apartment (by number+building or UUID), with total / average / peak-day summary. Good for spotting leaks or unusual usage. (No need to call get_apartment first. If you have the apartment number and building name, call this directly. If the building or apartment is not found, ask the user for clarification instead of searching for it).",
       inputSchema: { ...apartmentArgs },
       annotations: READ_ONLY,
     },
@@ -585,7 +585,7 @@ export function registerAquaTrackTools(
     {
       title: "Building billing history",
       description:
-        "Monthly water consumption (m³) and the corresponding payment/bill (Bs) for a building, plus average and peak daily usage per month. Use to review billing trends.",
+        "Monthly water consumption (m³) and the corresponding payment/bill (Bs) for a building, plus average and peak daily usage per month. Use to review billing trends. (If data is not found, stop and ask the user for clarification. Do not call list_buildings or other discovery tools unless explicitly requested).",
       inputSchema: {
         ...buildingArgs,
         months: z
@@ -1169,7 +1169,7 @@ export function registerAquaTrackTools(
     {
       title: "Compare consumption periods",
       description:
-        "Compare two months of building water consumption side-by-side: total consumption, average daily usage, peak day, and payment. Shows absolute and percentage differences. Use for month-over-month analysis. (If the user asks for the broader impact on billing, also call get_building_billing).",
+        "Compare two months of building water consumption side-by-side: total consumption, average daily usage, peak day, and payment. Shows absolute and percentage differences. Use for month-over-month analysis. (If the user asks for the broader impact on billing, also call get_building_billing. If data is not found, stop and ask the user for clarification. Do not call list_buildings or other discovery tools unless explicitly requested).",
       inputSchema: {
         ...buildingArgs,
         month1: z
