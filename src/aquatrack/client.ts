@@ -1,6 +1,7 @@
 import type { Config } from "../config.ts";
 import type { Logger } from "../logger.ts";
 import type {
+  ApartmentMonthlyByBuilding,
   ApartmentWithRelations,
   Apartment,
   Building,
@@ -205,6 +206,16 @@ export class AquaTrackClient {
     return this.request(
       "GET",
       `/api/v1/apartments-consumption/top-consumers/yesterday/${encodeURIComponent(buildingId)}?limit=${limit}`,
+    );
+  }
+
+  getApartmentsMonthlyByBuilding(
+    buildingId: string,
+    month: string,
+  ): Promise<ApartmentMonthlyByBuilding[]> {
+    return this.request(
+      "GET",
+      `/api/v1/apartments-consumption/monthly/${encodeURIComponent(buildingId)}?month=${encodeURIComponent(month)}`,
     );
   }
 
