@@ -100,3 +100,15 @@ export interface WaterMeter {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ApartmentMonthlyByBuilding {
+  apartmentId: string;
+  apartmentNumber: string;
+  apartmentFloor: number;
+  month: string;
+  consumption: number;
+  payment: number;
+  percentage: number;
+  avgDailyUsage: number;
+  peakDayUsage: number;
+}
