@@ -1048,7 +1048,7 @@ export function registerAquaTrackTools(
     {
       title: "Executive summary",
       description:
-        "Generates a comprehensive executive summary for a building: overall status rating (🟢/🟡/🔴), today's consumption with trend, 3-month billing trend, top consumers, IoT gateway health, and key alerts. Ideal for a quick management briefing.",
+        "Generates a comprehensive executive summary for a building: overall status rating (🟢/🟡/🔴), today's consumption with trend, 3-month billing trend, top consumers, IoT gateway health, and key alerts. Ideal for a quick management briefing. (Do not call get_building_overview, get_building_billing, or get_top_consumers alongside this tool, as it already includes that data).",
       inputSchema: { ...buildingArgs },
       annotations: READ_ONLY,
     },
@@ -1591,7 +1591,7 @@ export function registerAquaTrackTools(
     {
       title: "Recommend water savings",
       description:
-        "Generates actionable water-saving recommendations based on a building's consumption patterns, top consumers, IoT gateway health, and recent trends. Includes estimated savings potential if the highest consumers reduce to average levels.",
+        "Generates actionable water-saving recommendations based on a building's consumption patterns, top consumers, IoT gateway health, and recent trends. Includes estimated savings potential if the highest consumers reduce to average levels. (Provides standalone recommendations; no need to call other overview tools alongside it).",
       inputSchema: { ...buildingArgs },
       annotations: READ_ONLY,
     },
