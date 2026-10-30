@@ -81,7 +81,7 @@ docker run -p 3000:3000 --env-file .env aquatrack-mcp
 2. En MCP Jam, agrega un nuevo servidor MCP con:
    - **Tipo:** `Streamable HTTP`
    - **URL:** `https://tu-dominio.com/mcp`
-3. MCP Jam detectará automáticamente los 14 tools disponibles.
+3. MCP Jam detectará automáticamente los 22 tools disponibles.
 4. Si el servidor tiene OAuth habilitado, MCP Jam redirigirá al login de AquaTrack para autenticarse.
 5. Si configuraste `MCP_EVAL_TOKEN`, úsalo como Bearer token en MCP Jam.
 
@@ -172,6 +172,14 @@ claude mcp add aquatrack --type streamable-http \
 | `list_centrals` | Gateways IoT de un edificio |
 | `list_water_meters` | Todos los medidores con salud de batería (super_admin) |
 | `recalculate_consumption` | Recalcula consumo diario (admin, idempotente) |
+| `analyze_building_consumption` | Análisis profundo del consumo de un edificio (tendencias, costo) |
+| `detect_potential_leaks` | Detecta posibles fugas analizando anomalías en departamentos |
+| `generate_executive_summary` | Resumen ejecutivo del edificio (estado general, tendencias, alertas) |
+| `compare_periods` | Compara dos meses de consumo de un edificio |
+| `find_high_risk_apartments` | Identifica departamentos con alto riesgo de desperdicio o fugas |
+| `identify_consumption_anomalies` | Detección estadística de anomalías en consumo mensual |
+| `recommend_savings_actions` | Genera recomendaciones accionables para ahorrar agua |
+| `generate_building_health_report` | Reporte de salud completo del edificio (diagnóstico general) |
 
 ---
 
